@@ -1,0 +1,49 @@
+{
+  "name": "student-management-system",
+  "version": "1.0.0",
+  "description": "Student Management System Desktop Application",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"cd frontend && npm run dev\" \"wait-on http://localhost:3000 && npm run electron:no-server\"",
+    "server": "nodemon backend/server.js",
+    "electron": "electron .",
+    "electron:no-server": "cross-env SKIP_SERVER=true electron .",
+    "electron:debug": "electron . --inspect=5858",
+    "build": "npm run build-frontend && npm run build-electron",
+    "build-frontend": "cd frontend && npm run build",
+    "build-electron": "electron-builder",
+    "dist": "npm run build && electron-builder",
+    "postinstall": "electron-builder install-app-deps",
+    "seed": "node backend/scripts/seed.js"
+  },
+  "keywords": ["student-management", "electron", "react", "express"],
+  "author": "Your Name",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "compression": "^1.8.1",
+    "cors": "^2.8.6",
+    "csv-parse": "^7.0.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.6.1",
+    "express-validator": "^7.3.2",
+    "helmet": "^8.3.0",
+    "json2csv": "^6.0.0-alpha.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.9.1",
+    "morgan": "^1.11.0",
+    "multer": "^2.2.0",
+    "pdfkit": "^0.19.1"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.4",
+    "cross-env": "^10.1.0",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
+    "electron-squirrel-startup": "^1.0.1",
+    "nodemon": "^3.1.14",
+    "wait-on": "^9.1.0"
+  }
+}
