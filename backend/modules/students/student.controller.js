@@ -7,6 +7,8 @@ class StudentController {
   async createStudent(req, res, next) {
     try {
       const studentData = req.body;
+      // Always delete studentId from the request body
+      delete studentData.studentId;
       studentData.createdBy = req.user._id;
 
       const student = await studentService.createStudent(studentData);
@@ -253,6 +255,47 @@ class StudentController {
         students,
         count: students.length,
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // NEW: Bulk promote students
+  async promoteStudents(req, res, next) {
+    try {
+      const { grade, newGrade, academicYear, status = "active" } = req.body;
+      if (!grade || !newGrade || !academicYear) {
+        return sendError(
+          res,
+          "grade, newGrade, and academicYear are required",
+          400,
+        );
+      }
+      const result = await studentService.promoteStudents({
+        grade,
+        newGrade,
+        academicYear,
+        status,
+      });
+      return sendSuccess(res, result, "Students promoted successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // NEW: Bulk fail students
+  async failStudents(req, res, next) {
+    try {
+      const { grade, academicYear, status = "failed" } = req.body;
+      if (!grade || !academicYear) {
+        return sendError(res, "grade and academicYear are required", 400);
+      }
+      const result = await studentService.failStudents({
+        grade,
+        academicYear,
+        status,
+      });
+      return sendSuccess(res, result, "Students marked as failed");
     } catch (error) {
       next(error);
     }

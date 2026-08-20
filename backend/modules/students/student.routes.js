@@ -38,7 +38,14 @@ const updateStudentValidation = [
     .withMessage("Invalid gender"),
   body("status")
     .optional()
-    .isIn(["active", "inactive", "graduated", "withdrawn", "suspended"])
+    .isIn([
+      "active",
+      "inactive",
+      "graduated",
+      "withdrawn",
+      "suspended",
+      "failed",
+    ])
     .withMessage("Invalid status"),
 ];
 
@@ -125,5 +132,9 @@ router.post(
   handleUploadError,
   studentController.uploadPhoto,
 );
+
+// NEW: Bulk actions
+router.post("/promote", studentController.promoteStudents);
+router.post("/fail", studentController.failStudents);
 
 module.exports = router;

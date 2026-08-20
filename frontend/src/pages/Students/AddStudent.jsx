@@ -90,10 +90,20 @@ export default function AddStudent() {
         navigate("/students");
       }
     } catch (error) {
-      enqueueSnackbar(
-        error.response?.data?.message || "Failed to add student",
-        { variant: "error" },
-      );
+      const errData = error.response?.data;
+      if (errData && errData.errors && Array.isArray(errData.errors)) {
+        // Show all errors as a bullet list in one snackbar
+        const errorMessage = errData.errors.join("\n• ");
+        enqueueSnackbar(`❌ Validation errors:\n• ${errorMessage}`, {
+          variant: "error",
+          style: { whiteSpace: "pre-line" },
+          autoHideDuration: 8000,
+        });
+      } else {
+        enqueueSnackbar(errData?.message || "Failed to add student", {
+          variant: "error",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -361,6 +371,8 @@ export default function AddStudent() {
                     <MenuItem value="graduated">Graduated</MenuItem>
                     <MenuItem value="withdrawn">Withdrawn</MenuItem>
                     <MenuItem value="suspended">Suspended</MenuItem>
+                    {/* Added "failed" to match validation */}
+                    <MenuItem value="failed">Failed</MenuItem>
                   </TextField>
                 </Grid>
               </Grid>

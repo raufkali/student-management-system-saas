@@ -1,7 +1,11 @@
-// controllers/fee.controller.js
+// backend/modules/fees/fees.controllers.js
+
 const FeeStructure = require("./fees.structure.model");
 const FeeRecord = require("./fees.record.model");
-const Student = require("../../modules/students/student.model");
+const Student = require("../students/student.model");
+const Setting = require("../settings/setting.model"); // <-- added for school info
+const PDFDocument = require("pdfkit");
+const { sendSuccess, sendError, sendCreated } = require("../../utils/response");
 
 // ============ FEE STRUCTURE CONTROLLERS ============
 
@@ -502,6 +506,208 @@ exports.getFeeStatistics = async (req, res, next) => {
         monthlyCollection: monthlyCollection[0]?.monthlyTotal || 0,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ============ NEW: GENERATE RECEIPT PDF ============
+
+exports.generateReceipt = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Fetch fee record with student and payment details
+    const feeRecord = await FeeRecord.findById(id)
+      .populate("studentId")
+      .populate("payments.receivedBy", "firstName lastName");
+
+    if (!feeRecord) {
+      return res.status(404).json({
+        success: false,
+        message: "Fee record not found",
+      });
+    }
+
+    // Fetch school settings (logo, name, address, etc.)
+    const schoolSettings = await Setting.find({
+      key: {
+        $in: [
+          "school_name",
+          "school_address",
+          "school_phone",
+          "school_email",
+          "school_logo",
+        ],
+      },
+    });
+    const schoolInfo = {};
+    schoolSettings.forEach((s) => {
+      schoolInfo[s.key] = s.value;
+    });
+
+    // Create PDF document
+    const doc = new PDFDocument({
+      size: "A4",
+      margin: 50,
+      info: {
+        Title: `Receipt ${feeRecord._id}`,
+        Author: schoolInfo.school_name || "School",
+      },
+    });
+
+    const buffers = [];
+    doc.on("data", buffers.push.bind(buffers));
+    doc.on("end", () => {
+      const pdfData = Buffer.concat(buffers);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=receipt-${feeRecord._id}.pdf`,
+      );
+      res.send(pdfData);
+    });
+
+    // --- Header with Logo ---
+    if (schoolInfo.school_logo) {
+      try {
+        // school_logo is stored as base64 data URL
+        const logoBase64 = schoolInfo.school_logo.split(",")[1];
+        const logoBuffer = Buffer.from(logoBase64, "base64");
+        doc.image(logoBuffer, 50, 45, { width: 80 });
+      } catch (err) {
+        console.warn("Could not load logo:", err.message);
+      }
+    }
+
+    // School name and contact
+    doc
+      .fontSize(20)
+      .font("Helvetica-Bold")
+      .text(schoolInfo.school_name || "School Name", 150, 50, {
+        align: "center",
+      });
+    doc
+      .fontSize(10)
+      .font("Helvetica")
+      .text(schoolInfo.school_address || "", { align: "center" })
+      .text(`Phone: ${schoolInfo.school_phone || ""}`, { align: "center" })
+      .text(`Email: ${schoolInfo.school_email || ""}`, { align: "center" })
+      .moveDown();
+
+    // Title
+    doc
+      .fontSize(16)
+      .font("Helvetica-Bold")
+      .text("PAYMENT RECEIPT", { align: "center" })
+      .moveDown();
+
+    // Receipt details
+    const lastPayment = feeRecord.payments[feeRecord.payments.length - 1];
+    doc
+      .fontSize(12)
+      .font("Helvetica")
+      .text(`Receipt No: ${lastPayment?.receiptNumber || "N/A"}`)
+      .text(`Date: ${new Date().toLocaleDateString()}`)
+      .text(
+        `Student: ${feeRecord.studentId?.getFullName?.() || feeRecord.studentName || "Unknown"}`,
+      )
+      .text(`Class: ${feeRecord.studentClass}`)
+      .text(`Academic Year: ${feeRecord.academicYear}`)
+      .moveDown();
+
+    // --- Fee Items Table ---
+    const tableTop = doc.y;
+    const col1 = 50;
+    const col2 = 350;
+    const rowHeight = 20;
+
+    doc.font("Helvetica-Bold");
+    doc.text("Description", col1, tableTop);
+    doc.text("Amount (₹)", col2, tableTop, { width: 100, align: "right" });
+
+    let y = tableTop + rowHeight;
+    doc.font("Helvetica");
+    feeRecord.feeItems.forEach((item) => {
+      doc.text(item.name || "Item", col1, y);
+      doc.text((item.amount || 0).toFixed(2), col2, y, {
+        width: 100,
+        align: "right",
+      });
+      y += rowHeight;
+    });
+
+    // Totals
+    doc.font("Helvetica-Bold");
+    doc.text("Total Fee:", col1, y);
+    doc.text(feeRecord.totalFee.toFixed(2), col2, y, {
+      width: 100,
+      align: "right",
+    });
+    y += rowHeight;
+
+    doc.text("Discount / Scholarship:", col1, y);
+    const discount = feeRecord.discountAmount + feeRecord.scholarshipAmount;
+    doc.text(discount.toFixed(2), col2, y, { width: 100, align: "right" });
+    y += rowHeight;
+
+    doc.text("Total Paid:", col1, y);
+    doc.text(feeRecord.totalPaid.toFixed(2), col2, y, {
+      width: 100,
+      align: "right",
+    });
+    y += rowHeight;
+
+    doc.text("Remaining Balance:", col1, y);
+    doc.text(feeRecord.totalRemaining.toFixed(2), col2, y, {
+      width: 100,
+      align: "right",
+    });
+    y += rowHeight * 1.5;
+
+    // Payment details
+    if (lastPayment) {
+      doc.font("Helvetica-Bold").text("Payment Details:", col1, y);
+      y += rowHeight;
+      doc
+        .font("Helvetica")
+        .text(`Amount: ${lastPayment.amount.toFixed(2)}`, col1, y)
+        .text(`Method: ${lastPayment.paymentMethod}`, col1 + 150, y)
+        .text(`Type: ${lastPayment.paymentType}`, col1 + 300, y);
+      y += rowHeight;
+      if (lastPayment.referenceNumber) {
+        doc.text(`Reference: ${lastPayment.referenceNumber}`, col1, y);
+        y += rowHeight;
+      }
+      if (lastPayment.notes) {
+        doc.text(`Notes: ${lastPayment.notes}`, col1, y);
+        y += rowHeight;
+      }
+    }
+
+    // Footer
+    doc
+      .moveDown(2)
+      .fontSize(10)
+      .font("Helvetica")
+      .text("Thank you for your payment.", { align: "center" })
+      .text("This is a system-generated receipt.", {
+        align: "center",
+        fontSize: 8,
+      });
+
+    // Page number
+    const pageCount = doc.bufferedPageRange().count;
+    for (let i = 0; i < pageCount; i++) {
+      doc.switchToPage(i);
+      doc
+        .fontSize(8)
+        .text(`Page ${i + 1} of ${pageCount}`, 50, doc.page.height - 50, {
+          align: "center",
+        });
+    }
+
+    doc.end();
   } catch (error) {
     next(error);
   }

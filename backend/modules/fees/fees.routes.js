@@ -1,4 +1,5 @@
-// routes/fee.routes.js
+// backend/modules/fees/fees.routes.js
+
 const express = require("express");
 const router = express.Router();
 const feeController = require("./fees.controllers");
@@ -29,6 +30,7 @@ const recordPaymentValidation = [
       "sports",
       "transport",
       "late_fee",
+      "fine",
       "other",
     ])
     .withMessage("Invalid payment type"),
@@ -91,6 +93,13 @@ router.get(
 );
 router.get("/records/outstanding", feeController.getOutstandingFees);
 router.get("/records/collection-report", feeController.getCollectionReport);
+
+// NEW: Download receipt as PDF
+router.get(
+  "/records/:id/receipt",
+  validate(idValidation),
+  feeController.generateReceipt,
+);
 
 router.get(
   "/records/:id",

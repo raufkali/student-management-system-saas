@@ -5,13 +5,12 @@ const fs = require("fs");
 const { UPLOAD_PATH } = require("../../config/env");
 const { generatePDF } = require("../../utils/pdf");
 const { Parser } = require("json2csv");
+const XLSX = require("xlsx");
 
 class StudentService {
   async createStudent(studentData) {
-    // Generate student ID
-    if (!studentData.studentId) {
-      studentData.studentId = await Student.generateStudentId();
-    }
+    // Remove any studentId that might have been sent
+    delete studentData.studentId;
 
     // Check if email already exists
     const existingEmail = await Student.findOne({ email: studentData.email });
@@ -25,6 +24,7 @@ class StudentService {
       throw new AppError("Phone number is already registered", 409);
     }
 
+    // The pre-save hook will generate the studentId
     const student = await Student.create(studentData);
     return student;
   }
@@ -39,7 +39,6 @@ class StudentService {
 
     const query = {};
 
-    // Apply filters
     if (filters.search) {
       query.$or = [
         { firstName: { $regex: filters.search, $options: "i" } },
@@ -59,7 +58,6 @@ class StudentService {
       if (filters.toDate) query.enrollmentDate.$lte = new Date(filters.toDate);
     }
 
-    // Build sort object
     const sort = {};
     sort[sortBy] = sortOrder === "desc" ? -1 : 1;
 
@@ -69,9 +67,6 @@ class StudentService {
         .sort(sort)
         .skip((page - 1) * limit)
         .limit(limit)
-        // Remove populate if it's causing issues
-        // .populate('createdBy', 'firstName lastName email')
-        // .populate('updatedBy', 'firstName lastName email')
         .lean();
 
       return {
@@ -87,7 +82,6 @@ class StudentService {
       };
     } catch (error) {
       console.error("Error fetching students:", error);
-      // Return empty result on error
       return {
         students: [],
         pagination: {
@@ -115,13 +109,11 @@ class StudentService {
   }
 
   async updateStudent(studentId, updates) {
-    // Check if student exists
     const student = await Student.findById(studentId);
     if (!student) {
       throw new AppError("Student not found", 404);
     }
 
-    // Check for duplicate email if being updated
     if (updates.email && updates.email !== student.email) {
       const existingEmail = await Student.findOne({
         email: updates.email,
@@ -132,7 +124,6 @@ class StudentService {
       }
     }
 
-    // Check for duplicate phone if being updated
     if (updates.phone && updates.phone !== student.phone) {
       const existingPhone = await Student.findOne({
         phone: updates.phone,
@@ -143,7 +134,6 @@ class StudentService {
       }
     }
 
-    // Update student
     const updatedStudent = await Student.findByIdAndUpdate(
       studentId,
       { $set: updates },
@@ -161,7 +151,6 @@ class StudentService {
       throw new AppError("Student not found", 404);
     }
 
-    // Soft delete
     student.isDeleted = true;
     student.deletedAt = new Date();
     await student.save();
@@ -175,7 +164,6 @@ class StudentService {
       throw new AppError("Student not found", 404);
     }
 
-    // Delete associated files
     if (student.photo) {
       const photoPath = path.join(UPLOAD_PATH, student.photo);
       if (fs.existsSync(photoPath)) {
@@ -183,7 +171,6 @@ class StudentService {
       }
     }
 
-    // Delete student
     await student.deleteOne();
     return student;
   }
@@ -211,7 +198,6 @@ class StudentService {
       throw new AppError("Student not found", 404);
     }
 
-    // Delete old photo if exists
     if (student.photo) {
       const oldPhotoPath = path.join(UPLOAD_PATH, student.photo);
       if (fs.existsSync(oldPhotoPath)) {
@@ -219,7 +205,6 @@ class StudentService {
       }
     }
 
-    // Save new photo path
     const relativePath = path.relative(UPLOAD_PATH, photoPath);
     student.photo = relativePath;
     await student.save();
@@ -244,11 +229,9 @@ class StudentService {
     }));
 
     if (format === "csv") {
-      // Generate CSV
       const parser = new Parser();
       return parser.parse(exportData);
     } else if (format === "pdf") {
-      // Generate PDF
       return await generatePDF({
         title: "Student Report",
         data: exportData,
@@ -264,36 +247,36 @@ class StudentService {
         ],
       });
     } else {
-      // JSON
       return JSON.stringify(exportData, null, 2);
     }
   }
 
   async importStudents(filePath, userId) {
     try {
-      // Read file
-      const fileContent = fs.readFileSync(filePath, "utf8");
+      const fileBuffer = fs.readFileSync(filePath);
       let studentsData;
 
-      // Parse based on file extension
       const ext = path.extname(filePath).toLowerCase();
       if (ext === ".json") {
-        studentsData = JSON.parse(fileContent);
+        studentsData = JSON.parse(fileBuffer.toString("utf8"));
       } else if (ext === ".csv") {
-        // Parse CSV using csv-parse
         const { parse } = require("csv-parse/sync");
-        studentsData = parse(fileContent, {
+        studentsData = parse(fileBuffer.toString("utf8"), {
           columns: true,
           skip_empty_lines: true,
         });
+      } else if (ext === ".xlsx" || ext === ".xls") {
+        const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        studentsData = XLSX.utils.sheet_to_json(worksheet);
       } else {
         throw new AppError(
-          "Unsupported file format. Please use JSON or CSV.",
+          "Unsupported file format. Please use JSON, CSV, or Excel (.xlsx, .xls).",
           400,
         );
       }
 
-      // Process each student
       const results = {
         successful: [],
         failed: [],
@@ -302,12 +285,12 @@ class StudentService {
 
       for (const data of studentsData) {
         try {
-          // Map CSV columns to model fields if needed
+          // Remove any studentId from import data
+          delete data.studentId;
           const studentData = {
             ...data,
             createdBy: userId,
           };
-
           const student = await this.createStudent(studentData);
           results.successful.push({
             studentId: student.studentId,
@@ -321,14 +304,12 @@ class StudentService {
         }
       }
 
-      // Clean up uploaded file
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
 
       return results;
     } catch (error) {
-      // Clean up uploaded file
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
@@ -336,35 +317,70 @@ class StudentService {
     }
   }
 
+  // Safe getStatistics – returns fallback if aggregations fail
   async getStatistics() {
-    const total = await Student.countDocuments({ isDeleted: { $ne: true } });
-    const active = await Student.countDocuments({
-      status: "active",
-      isDeleted: { $ne: true },
-    });
-    const byGrade = await Student.aggregate([
-      { $match: { isDeleted: { $ne: true } } },
-      { $group: { _id: "$grade", count: { $sum: 1 } } },
-      { $sort: { _id: 1 } },
-    ]);
-    const byGender = await Student.aggregate([
-      { $match: { isDeleted: { $ne: true } } },
-      { $group: { _id: "$gender", count: { $sum: 1 } } },
-    ]);
-    const recentEnrollments = await Student.find({
-      isDeleted: { $ne: true },
-      enrollmentDate: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
-    }).countDocuments();
+    try {
+      const total = await Student.countDocuments({ isDeleted: { $ne: true } });
+      const active = await Student.countDocuments({
+        status: "active",
+        isDeleted: { $ne: true },
+      });
 
-    return {
-      total,
-      active,
-      inactive: total - active,
-      byGrade,
-      byGender,
-      recentEnrollments,
-      lastUpdated: new Date(),
-    };
+      let byGrade = [];
+      let byGender = [];
+      let recentEnrollments = 0;
+
+      try {
+        byGrade = await Student.aggregate([
+          { $match: { isDeleted: { $ne: true } } },
+          { $group: { _id: "$grade", count: { $sum: 1 } } },
+          { $sort: { _id: 1 } },
+        ]);
+      } catch (aggErr) {
+        console.warn("Aggregation byGrade failed:", aggErr.message);
+      }
+
+      try {
+        byGender = await Student.aggregate([
+          { $match: { isDeleted: { $ne: true } } },
+          { $group: { _id: "$gender", count: { $sum: 1 } } },
+        ]);
+      } catch (aggErr) {
+        console.warn("Aggregation byGender failed:", aggErr.message);
+      }
+
+      try {
+        recentEnrollments = await Student.countDocuments({
+          isDeleted: { $ne: true },
+          enrollmentDate: {
+            $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          },
+        });
+      } catch (countErr) {
+        console.warn("Recent enrollments count failed:", countErr.message);
+      }
+
+      return {
+        total,
+        active,
+        inactive: total - active,
+        byGrade,
+        byGender,
+        recentEnrollments,
+        lastUpdated: new Date(),
+      };
+    } catch (error) {
+      console.error("getStatistics overall error:", error);
+      return {
+        total: 0,
+        active: 0,
+        inactive: 0,
+        byGrade: [],
+        byGender: [],
+        recentEnrollments: 0,
+        lastUpdated: new Date(),
+      };
+    }
   }
 
   async getStudentsByGrade(grade) {
@@ -378,6 +394,37 @@ class StudentService {
 
   async searchStudents(searchTerm) {
     return await Student.searchStudents(searchTerm);
+  }
+
+  // Bulk promote
+  async promoteStudents({ grade, newGrade, academicYear, status = "active" }) {
+    const filter = { grade: grade.toUpperCase(), isDeleted: { $ne: true } };
+    const update = {
+      grade: newGrade.toUpperCase(),
+      academicYear,
+      status,
+      updatedAt: new Date(),
+    };
+    const result = await Student.updateMany(filter, { $set: update });
+    return {
+      matchedCount: result.matchedCount,
+      modifiedCount: result.modifiedCount,
+    };
+  }
+
+  // Bulk fail
+  async failStudents({ grade, academicYear, status = "failed" }) {
+    const filter = { grade: grade.toUpperCase(), isDeleted: { $ne: true } };
+    const update = {
+      status,
+      academicYear,
+      updatedAt: new Date(),
+    };
+    const result = await Student.updateMany(filter, { $set: update });
+    return {
+      matchedCount: result.matchedCount,
+      modifiedCount: result.modifiedCount,
+    };
   }
 }
 

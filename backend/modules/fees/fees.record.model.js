@@ -1,4 +1,5 @@
-// models/FeeRecord.js
+// backend/modules/fees/fees.record.model.js
+
 const mongoose = require("mongoose");
 
 const feeRecordSchema = new mongoose.Schema(
@@ -23,12 +24,34 @@ const feeRecordSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    // Fee details
+    // Fee items with extended types
     feeItems: [
       {
-        name: String,
-        amount: Number,
-        type: String,
+        name: {
+          type: String,
+          required: true,
+        },
+        amount: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
+        type: {
+          type: String,
+          enum: [
+            "tuition",
+            "admission",
+            "exam",
+            "library",
+            "lab",
+            "sports",
+            "transport",
+            "fine",
+            "late_fee",
+            "other",
+          ],
+          default: "other",
+        },
         description: String,
       },
     ],
@@ -96,6 +119,7 @@ const feeRecordSchema = new mongoose.Schema(
         receiptNumber: {
           type: String,
           unique: true,
+          sparse: true, // allow null/undefined for uniqueness
         },
         paymentType: {
           type: String,
@@ -108,6 +132,7 @@ const feeRecordSchema = new mongoose.Schema(
             "sports",
             "transport",
             "late_fee",
+            "fine",
             "other",
           ],
           required: true,
@@ -166,20 +191,25 @@ feeRecordSchema.index({ status: 1 });
 feeRecordSchema.index({ "payments.receiptNumber": 1 });
 feeRecordSchema.index({ academicYear: 1 });
 
-// Pre-save hook to generate receipt number
+// Pre-save hook to generate receipt number for new payments
 feeRecordSchema.pre("save", async function (next) {
   if (this.isNew) {
-    // Generate receipt numbers for new payments
-    this.payments.forEach(async (payment) => {
+    // Generate receipt numbers for new payments that don't have one
+    for (const payment of this.payments) {
       if (!payment.receiptNumber) {
         const year = new Date().getFullYear().toString().slice(-2);
+        // Count documents to create a sequential number (approx)
         const count = await this.constructor.countDocuments();
         const random = Math.floor(Math.random() * 10000)
           .toString()
           .padStart(4, "0");
         payment.receiptNumber = `RCP${year}${(count + 1).toString().padStart(6, "0")}${random}`;
       }
-    });
+    }
+  } else {
+    // For updates, check for new payments added (e.g., via push)
+    // This is a simplification; in practice, you'd handle this differently.
+    // We'll rely on the controller to set receipt numbers for new payments.
   }
   next();
 });

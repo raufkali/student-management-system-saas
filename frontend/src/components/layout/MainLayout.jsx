@@ -5,9 +5,9 @@ import {
   Drawer,
   AppBar,
   Toolbar,
-  List,
   Typography,
   IconButton,
+  List,
   ListItem,
   ListItemIcon,
   ListItemText,
@@ -26,6 +26,7 @@ import {
   Menu as MenuIcon,
   Brightness4 as DarkIcon,
   Brightness7 as LightIcon,
+  Receipt as ReceiptIcon, // NEW
 } from "@mui/icons-material";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
@@ -36,6 +37,7 @@ const menuItems = [
   { path: "/dashboard", label: "Dashboard", icon: DashboardIcon },
   { path: "/students", label: "Students", icon: PeopleIcon },
   { path: "/documents", label: "Documents", icon: DescriptionIcon },
+  { path: "/fees", label: "Fees", icon: ReceiptIcon }, // NEW
   { path: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 

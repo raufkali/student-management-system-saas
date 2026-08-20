@@ -48,9 +48,7 @@ const validateStudentCreate = [
     .withMessage("Please provide a valid phone number"),
 
   body("address.city").trim().notEmpty().withMessage("City is required"),
-
   body("address.state").trim().notEmpty().withMessage("State is required"),
-
   body("address.country").trim().notEmpty().withMessage("Country is required"),
 
   body("grade")
@@ -66,18 +64,34 @@ const validateStudentCreate = [
     .withMessage("Academic year is required"),
 
   body("fatherName").trim().notEmpty().withMessage("Father's name is required"),
-
   body("fatherPhone")
     .trim()
     .notEmpty()
     .withMessage("Father's phone is required"),
-
   body("motherName").trim().notEmpty().withMessage("Mother's name is required"),
 
+  body("status")
+    .optional()
+    .isIn([
+      "active",
+      "inactive",
+      "graduated",
+      "withdrawn",
+      "suspended",
+      "failed",
+    ])
+    .withMessage("Invalid status"),
+
+  // ✅ SEND ALL ERRORS, NOT JUST THE FIRST ONE
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return sendError(res, errors.array()[0].msg, 400);
+      const errorMessages = errors.array().map((err) => err.msg);
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errorMessages,
+      });
     }
     next();
   },
@@ -101,7 +115,14 @@ const validateStudentUpdate = [
 
   body("status")
     .optional()
-    .isIn(["active", "inactive", "graduated", "withdrawn", "suspended"])
+    .isIn([
+      "active",
+      "inactive",
+      "graduated",
+      "withdrawn",
+      "suspended",
+      "failed",
+    ])
     .withMessage("Invalid status"),
 
   body("phone")
@@ -113,7 +134,12 @@ const validateStudentUpdate = [
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return sendError(res, errors.array()[0].msg, 400);
+      const errorMessages = errors.array().map((err) => err.msg);
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errorMessages,
+      });
     }
     next();
   },
@@ -126,7 +152,12 @@ const validateStudentId = [
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return sendError(res, errors.array()[0].msg, 400);
+      const errorMessages = errors.array().map((err) => err.msg);
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errorMessages,
+      });
     }
     next();
   },
@@ -158,17 +189,28 @@ const validateStudentQuery = [
 
   query("status")
     .optional()
-    .isIn(["active", "inactive", "graduated", "withdrawn", "suspended"])
+    .isIn([
+      "active",
+      "inactive",
+      "graduated",
+      "withdrawn",
+      "suspended",
+      "failed",
+    ])
     .withMessage("Invalid status"),
 
   query("fromDate").optional().isISO8601().withMessage("Invalid date format"),
-
   query("toDate").optional().isISO8601().withMessage("Invalid date format"),
 
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return sendError(res, errors.array()[0].msg, 400);
+      const errorMessages = errors.array().map((err) => err.msg);
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errorMessages,
+      });
     }
     next();
   },

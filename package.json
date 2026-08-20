@@ -16,7 +16,12 @@
     "postinstall": "electron-builder install-app-deps",
     "seed": "node backend/scripts/seed.js"
   },
-  "keywords": ["student-management", "electron", "react", "express"],
+  "keywords": [
+    "student-management",
+    "electron",
+    "react",
+    "express"
+  ],
   "author": "Your Name",
   "license": "ISC",
   "type": "commonjs",
@@ -35,7 +40,8 @@
     "mongoose": "^9.9.1",
     "morgan": "^1.11.0",
     "multer": "^2.2.0",
-    "pdfkit": "^0.19.1"
+    "pdfkit": "^0.19.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "concurrently": "^10.0.4",

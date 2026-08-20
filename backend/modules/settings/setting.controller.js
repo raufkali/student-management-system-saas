@@ -111,7 +111,6 @@ class SettingController {
         .select("key value category")
         .sort({ category: 1, key: 1 });
 
-      // Convert to object with key-value pairs
       const settingsObject = {};
       settings.forEach((setting) => {
         settingsObject[setting.key] = setting.value;
@@ -125,10 +124,13 @@ class SettingController {
     }
   }
 
-  // Initialize default settings
+  // Initialize default settings (including school settings)
   async initializeSettings(req, res, next) {
     try {
       const defaultSettings = [
+        // ... existing general, academic, financial, notification, system settings ...
+        // I'll include them all here for completeness.
+        // (the previous list is long; I'll add the new ones at the end)
         {
           key: "app_name",
           value: "Student Management System",
@@ -217,6 +219,42 @@ class SettingController {
           description: "Put system in maintenance mode",
           isPublic: true,
         },
+        // NEW SCHOOL SETTINGS
+        {
+          key: "school_name",
+          value: "My School",
+          category: "general",
+          description: "School name",
+          isPublic: true,
+        },
+        {
+          key: "school_address",
+          value: "",
+          category: "general",
+          description: "School address",
+          isPublic: true,
+        },
+        {
+          key: "school_phone",
+          value: "",
+          category: "general",
+          description: "School phone number",
+          isPublic: true,
+        },
+        {
+          key: "school_email",
+          value: "",
+          category: "general",
+          description: "School email address",
+          isPublic: true,
+        },
+        {
+          key: "school_logo",
+          value: null,
+          category: "general",
+          description: "School logo (base64 encoded image)",
+          isPublic: true,
+        },
       ];
 
       let created = 0;
@@ -225,7 +263,6 @@ class SettingController {
       for (const settingData of defaultSettings) {
         const existing = await Setting.findOne({ key: settingData.key });
         if (existing) {
-          // Update if value differs
           if (
             JSON.stringify(existing.value) !== JSON.stringify(settingData.value)
           ) {

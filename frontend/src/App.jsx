@@ -17,6 +17,7 @@ const StudentDocuments = lazy(
 const Settings = lazy(() => import("./pages/Settings/Settings"));
 const Profile = lazy(() => import("./pages/Profile/Profile"));
 const Documents = lazy(() => import("./pages/Documents/Documents"));
+const FeeRecords = lazy(() => import("./pages/Fees/FeeRecords")); // NEW
 
 function LoadingFallback() {
   return (
@@ -104,6 +105,14 @@ function App() {
                   element={
                     <PrivateRoute>
                       <Documents />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/fees"
+                  element={
+                    <PrivateRoute>
+                      <FeeRecords />
                     </PrivateRoute>
                   }
                 />

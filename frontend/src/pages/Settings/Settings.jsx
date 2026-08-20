@@ -11,6 +11,7 @@ import {
   Divider,
   Paper,
   LinearProgress,
+  Avatar,
 } from "@mui/material";
 import MainLayout from "../../components/layout/MainLayout";
 import api from "../../services/api";
@@ -32,6 +33,12 @@ export default function Settings() {
     enable_notifications: true,
     email_notifications: true,
     maintenance_mode: false,
+    // School customization
+    school_name: "",
+    school_address: "",
+    school_phone: "",
+    school_email: "",
+    school_logo: null,
   });
 
   useEffect(() => {
@@ -60,6 +67,17 @@ export default function Settings() {
     const value =
       e.target.type === "checkbox" ? e.target.checked : e.target.value;
     setSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setSettings((prev) => ({ ...prev, school_logo: ev.target.result }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSave = async () => {
@@ -99,6 +117,7 @@ export default function Settings() {
       </Box>
 
       <Grid container spacing={3}>
+        {/* General Settings */}
         <Grid item xs={12}>
           <Card>
             <CardContent>
@@ -146,6 +165,76 @@ export default function Settings() {
           </Card>
         </Grid>
 
+        {/* School Customization */}
+        <Grid item xs={12}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" fontWeight={600} gutterBottom>
+                School Information
+              </Typography>
+              <Divider sx={{ mb: 3 }} />
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="School Name"
+                    value={settings.school_name || ""}
+                    onChange={handleChange("school_name")}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="School Address"
+                    value={settings.school_address || ""}
+                    onChange={handleChange("school_address")}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="School Phone"
+                    value={settings.school_phone || ""}
+                    onChange={handleChange("school_phone")}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="School Email"
+                    value={settings.school_email || ""}
+                    onChange={handleChange("school_email")}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <Button variant="outlined" component="label">
+                      Upload Logo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={handleLogoUpload}
+                      />
+                    </Button>
+                    {settings.school_logo && (
+                      <Avatar
+                        src={settings.school_logo}
+                        sx={{ width: 80, height: 80 }}
+                      />
+                    )}
+                  </Box>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Academic Settings */}
         <Grid item xs={12}>
           <Card>
             <CardContent>
@@ -189,6 +278,7 @@ export default function Settings() {
           </Card>
         </Grid>
 
+        {/* Financial Settings */}
         <Grid item xs={12}>
           <Card>
             <CardContent>
@@ -232,6 +322,7 @@ export default function Settings() {
           </Card>
         </Grid>
 
+        {/* Notification Settings */}
         <Grid item xs={12}>
           <Card>
             <CardContent>
