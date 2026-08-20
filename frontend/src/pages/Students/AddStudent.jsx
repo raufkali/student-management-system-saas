@@ -22,6 +22,8 @@ import api from "../../services/api";
 import { useSnackbar } from "notistack";
 
 const initialFormData = {
+  // NEW: registration number (manually provided)
+  registrationNumber: "",
   firstName: "",
   lastName: "",
   dateOfBirth: "",
@@ -84,7 +86,17 @@ export default function AddStudent() {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await api.post("/students", formData);
+      // Do not send studentId – it is auto‑generated on the backend
+      const payload = { ...formData };
+      // Ensure registrationNumber is provided
+      if (!payload.registrationNumber) {
+        enqueueSnackbar("Registration number is required", {
+          variant: "warning",
+        });
+        setLoading(false);
+        return;
+      }
+      const response = await api.post("/students", payload);
       if (response.data.success) {
         enqueueSnackbar("Student added successfully", { variant: "success" });
         navigate("/students");
@@ -92,7 +104,6 @@ export default function AddStudent() {
     } catch (error) {
       const errData = error.response?.data;
       if (errData && errData.errors && Array.isArray(errData.errors)) {
-        // Show all errors as a bullet list in one snackbar
         const errorMessage = errData.errors.join("\n• ");
         enqueueSnackbar(`❌ Validation errors:\n• ${errorMessage}`, {
           variant: "error",
@@ -142,6 +153,19 @@ export default function AddStudent() {
               </Typography>
               <Divider sx={{ mb: 3 }} />
               <Grid container spacing={2}>
+                {/* NEW: Registration Number */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Registration Number"
+                    name="registrationNumber"
+                    value={formData.registrationNumber}
+                    onChange={handleChange}
+                    required
+                    size="small"
+                    helperText="Manually assigned, unique identifier"
+                  />
+                </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
@@ -218,7 +242,7 @@ export default function AddStudent() {
             </Paper>
           </Grid>
 
-          {/* Contact Information */}
+          {/* Contact Information – unchanged */}
           <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" fontWeight={600} gutterBottom>
@@ -306,7 +330,7 @@ export default function AddStudent() {
             </Paper>
           </Grid>
 
-          {/* Academic Information */}
+          {/* Academic Information – unchanged */}
           <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" fontWeight={600} gutterBottom>
@@ -371,7 +395,6 @@ export default function AddStudent() {
                     <MenuItem value="graduated">Graduated</MenuItem>
                     <MenuItem value="withdrawn">Withdrawn</MenuItem>
                     <MenuItem value="suspended">Suspended</MenuItem>
-                    {/* Added "failed" to match validation */}
                     <MenuItem value="failed">Failed</MenuItem>
                   </TextField>
                 </Grid>
@@ -379,7 +402,7 @@ export default function AddStudent() {
             </Paper>
           </Grid>
 
-          {/* Guardian Information */}
+          {/* Guardian Information – unchanged */}
           <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" fontWeight={600} gutterBottom>
@@ -488,7 +511,7 @@ export default function AddStudent() {
             </Paper>
           </Grid>
 
-          {/* Additional Information */}
+          {/* Additional Information – unchanged */}
           <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" fontWeight={600} gutterBottom>

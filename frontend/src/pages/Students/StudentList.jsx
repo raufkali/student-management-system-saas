@@ -58,6 +58,11 @@ export default function StudentList() {
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
 
+  // Delete confirmation dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
   // Bulk actions
   const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
   const [failDialogOpen, setFailDialogOpen] = useState(false);
@@ -112,18 +117,31 @@ export default function StudentList() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this student?"))
-      return;
+  // ---------- DELETE HANDLING ----------
+  const openDeleteDialog = (student) => {
+    setStudentToDelete(student);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!studentToDelete) return;
+    setDeleting(true);
     try {
-      await api.delete(`/students/${id}`);
+      await api.delete(`/students/${studentToDelete._id}`);
       enqueueSnackbar("Student deleted successfully", { variant: "success" });
-      fetchStudents();
+      setDeleteDialogOpen(false);
+      setStudentToDelete(null);
+      fetchStudents(); // refresh list
     } catch (error) {
-      enqueueSnackbar("Failed to delete student", { variant: "error" });
+      const errorMsg =
+        error.response?.data?.message || "Failed to delete student";
+      enqueueSnackbar(errorMsg, { variant: "error" });
+    } finally {
+      setDeleting(false);
     }
   };
 
+  // ---------- STATUS COLOR ----------
   const getStatusColor = (status) => {
     switch (status) {
       case "active":
@@ -135,7 +153,6 @@ export default function StudentList() {
       case "withdrawn":
         return "warning";
       case "suspended":
-        return "error";
       case "failed":
         return "error";
       default:
@@ -143,7 +160,7 @@ export default function StudentList() {
     }
   };
 
-  // Inline editing handlers
+  // ---------- INLINE EDITING ----------
   const handleEditClick = (student) => {
     setEditingId(student._id);
     setEditData({
@@ -173,7 +190,7 @@ export default function StudentList() {
     setEditData({});
   };
 
-  // Bulk promote/fail
+  // ---------- BULK ACTIONS ----------
   const handlePromote = async () => {
     try {
       await api.post("/students/promote", {
@@ -274,7 +291,7 @@ export default function StudentList() {
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Student ID</TableCell>
+                      <TableCell>Reg. No</TableCell>
                       <TableCell>Name</TableCell>
                       <TableCell>Email</TableCell>
                       <TableCell>Grade</TableCell>
@@ -286,7 +303,7 @@ export default function StudentList() {
                   <TableBody>
                     {students.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                        <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                           <Typography color="text.secondary">
                             No students found. Click "Add Student" to create
                             one.
@@ -296,7 +313,9 @@ export default function StudentList() {
                     ) : (
                       students.map((student) => (
                         <TableRow key={student._id}>
-                          <TableCell>{student.studentId}</TableCell>
+                          <TableCell>
+                            {student.registrationNumber || "—"}
+                          </TableCell>
                           <TableCell>
                             {student.firstName} {student.lastName}
                           </TableCell>
@@ -382,7 +401,7 @@ export default function StudentList() {
                                 </IconButton>
                                 <IconButton
                                   size="small"
-                                  onClick={() => handleDelete(student._id)}
+                                  onClick={() => openDeleteDialog(student)}
                                   color="error"
                                 >
                                   <DeleteIcon fontSize="small" />
@@ -488,6 +507,37 @@ export default function StudentList() {
           <Button onClick={() => setFailDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" color="error" onClick={handleFail}>
             Mark as Failed
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
+        <DialogTitle>Delete Student</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete the student "
+            {studentToDelete?.firstName} {studentToDelete?.lastName}"? This
+            action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setDeleteDialogOpen(false)}
+            disabled={deleting}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleDelete}
+            disabled={deleting}
+          >
+            {deleting ? "Deleting..." : "Delete"}
           </Button>
         </DialogActions>
       </Dialog>

@@ -39,6 +39,7 @@ export default function EditStudent() {
       if (response.data.success) {
         const student = response.data.data.student;
         setFormData({
+          registrationNumber: student.registrationNumber || "",
           firstName: student.firstName || "",
           lastName: student.lastName || "",
           dateOfBirth: student.dateOfBirth
@@ -106,7 +107,11 @@ export default function EditStudent() {
     e.preventDefault();
     setSaving(true);
     try {
-      const response = await api.put(`/students/${id}`, formData);
+      // registrationNumber is not sent to backend (optional; we can leave it but backend may ignore)
+      // To be safe, delete it from the payload
+      const payload = { ...formData };
+      delete payload.registrationNumber; // prevent accidental update
+      const response = await api.put(`/students/${id}`, payload);
       if (response.data.success) {
         enqueueSnackbar("Student updated successfully", { variant: "success" });
         navigate("/students");
@@ -172,6 +177,19 @@ export default function EditStudent() {
               </Typography>
               <Divider sx={{ mb: 3 }} />
               <Grid container spacing={2}>
+                {/* NEW: Registration Number (read‑only) */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Registration Number"
+                    name="registrationNumber"
+                    value={formData.registrationNumber}
+                    onChange={handleChange}
+                    size="small"
+                    InputProps={{ readOnly: true }}
+                    helperText="Registration number cannot be changed"
+                  />
+                </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
@@ -248,7 +266,7 @@ export default function EditStudent() {
             </Paper>
           </Grid>
 
-          {/* Contact Information */}
+          {/* Contact Information – unchanged */}
           <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" fontWeight={600} gutterBottom>
@@ -336,7 +354,7 @@ export default function EditStudent() {
             </Paper>
           </Grid>
 
-          {/* Academic Information */}
+          {/* Academic Information – unchanged */}
           <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" fontWeight={600} gutterBottom>
@@ -401,13 +419,14 @@ export default function EditStudent() {
                     <MenuItem value="graduated">Graduated</MenuItem>
                     <MenuItem value="withdrawn">Withdrawn</MenuItem>
                     <MenuItem value="suspended">Suspended</MenuItem>
+                    <MenuItem value="failed">Failed</MenuItem>
                   </TextField>
                 </Grid>
               </Grid>
             </Paper>
           </Grid>
 
-          {/* Guardian Information */}
+          {/* Guardian Information – unchanged */}
           <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" fontWeight={600} gutterBottom>
@@ -516,7 +535,7 @@ export default function EditStudent() {
             </Paper>
           </Grid>
 
-          {/* Additional Information */}
+          {/* Additional Information – unchanged */}
           <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" fontWeight={600} gutterBottom>
